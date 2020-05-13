@@ -1,0 +1,106 @@
+---
+title: "REPORT WEB SCRAPING"
+author: "Diakite Mamadou Youssouf -- Kouakou Enode De Laure -- Toure Florentin"
+output:
+  pdf_document: default
+  html_document: default
+---
+## Required librairies
+
+```{r warning=FALSE,message=FALSE}
+# General-purpose data wrangling
+library(tidyverse)  
+
+# Parsing of HTML/XML files  
+library(rvest)    
+
+# String manipulation
+library(stringr)   
+
+library(purrr)
+```
+
+## Loading html file
+
+```{r}
+# Load web site
+deputes = "https://www.hatvp.fr/resultat-de-recherche-avancee/?document=&mandat=depute&region=0&dep="
+# Load html file
+html_deputes <- read_html(deputes)
+
+```
+
+## Name and Web Site of each deputy
+
+```{r}
+# Names
+nom_depute = html_deputes %>%   
+  html_nodes('.list-results > ul > li  > div:nth-of-type(2)  > p > a')   %>% html_text()
+
+# Web site
+site_depute = html_deputes %>%   
+  html_nodes('.list-results > ul > li  > div:nth-of-type(2)  > p > a')   %>%  
+  html_attrs() %>%
+  unlist() %>% 
+  as.character()
+
+```
+
+## Create a function to scrape and get the mean salary
+
+```{r}
+## Here we created a function to scrape and get the mean of salaries 
+get_mean_salary = function(url){
+  
+  
+  # get all tables of salary 
+  tables =  read_html(url)  %>% html_table() 
+  
+  mean_salary = 0
+  
+  if( length(tables) != 0 ){   
+  
+  
+  # list to save all salaries
+  moy_sal = list()
+  
+   for (ii in 1:length(tables)) {
+    moy_sal[[ii]] = str_replace(str_split(str_replace(tables[[ii]][,2], " ", ""),
+      "€", simplify = T)[,1], " ", "") %>% 
+      as.numeric() 
+    }
+  
+  # unlist salary list
+  tmp = moy_sal %>% unlist()
+  
+  # compute mean salary
+   mean_salary = tmp[tmp != 0] %>% mean()
+  
+  }
+  
+  else   {   mean_salary  = 0 }
+  
+  
+return( mean_salary)}
+  
+
+## We apply our function on every deputy's web site
+mean_salary_vector=rep(0,length(site_depute))
+
+for (i in 1:length(site_depute)) {
+  
+  mean_salary_vector[i] = get_mean_salary(site_depute[i])
+}
+
+```
+
+## Data frame of mean salary
+
+```{r}
+## We have here the tibble containing every deputy with his mean salary
+table_nom_sal = tibble(Deputes = nom_depute, 
+                     salaire_moyen = mean_salary_vector)
+```
+
+Some deputies didn't make any declarations so their mean salary is zero.
+
